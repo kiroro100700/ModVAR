@@ -22,8 +22,13 @@ git clone https://github.com/kiroro100700/ModVAR.git
 cd ModVAR
 ~~~
 
-Prepare the environment
+Prepare the environment,the `requirements.txt` is based on python3.7.1.
+~~~
+#You can use conda to create a new environment
 
+conda create --name new_env python=3.7.1
+conda activate new_env
+~~~
 ~~~
 pip install -r requirements.txt
 ~~~

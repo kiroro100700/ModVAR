@@ -86,7 +86,7 @@ def train_and_eval_ModVAR(train_name,val_name,tab_model = "saint_fn",batch_size 
 
     model = ModVAR()
     model = model.double()
-    tab_model = torch.load('../data/tab_model/{}.pth'.format(tab_model), map_location='cpu')
+    tab_model = torch.load('../data/tab_model/{}'.format(tab_model), map_location='cpu')
 
     if cuda_is_available:
         model = model.cuda()
