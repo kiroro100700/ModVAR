@@ -9,6 +9,7 @@ from torch import optim
 from sklearn.metrics import precision_recall_curve,roc_curve,auc
 import sys
 import argparse
+import os
 
 cuda_is_available = torch.cuda.is_available()
 print("cuda:",cuda_is_available)
@@ -215,9 +216,11 @@ def train_and_eval_ModVAR(train_name,val_name,tab_model = "saint_fn",batch_size 
         val_acc.append(accuracy)
 
         if save_name != '':
-            torch.save(model,"../data/{}_epoch{}.pth".format(save_name,epoch+1))
+            if not os.path.exists("../data/{}".format(save_name)):
+                os.mkdir("../data/{}".format(save_name))
+            torch.save(model,"../data/{}/{}_epoch{}.pth".format(save_name,save_name,epoch+1))
 
-def eval_set(val_name,tab_model = "saint_fn",model_name = "ModVAR",output = None):
+def eval_set(val_name,tab_model = "saint_fn.pth",model_name = "ModVAR.pth",output = None):
     features_val = list(fea_loader.load_fea(val_name, "infer"))
     info_df = load_data_info(val_name)
     features_val,info_df = shuffle_data(3,features_val,info_df)
@@ -234,9 +237,9 @@ def eval_set(val_name,tab_model = "saint_fn",model_name = "ModVAR",output = None
     val_set = MyDataset(dna_valid, aa_valid, tool_valid, gene_valid, epis_valid, pc_valid, label_valid)
     val_loader = torch.utils.data.DataLoader(val_set, batch_size=64, shuffle=False)
 
-    model = torch.load('../data/{}.pth'.format(model_name), map_location='cpu')
+    model = torch.load('../data/{}'.format(model_name), map_location='cpu')
     model = model.double()
-    tab_model = torch.load('../data/tab_model/{}.pth'.format(tab_model), map_location='cpu')
+    tab_model = torch.load('../data/tab_model/{}'.format(tab_model), map_location='cpu')
 
     if cuda_is_available:
         model = model.cuda()
@@ -310,12 +313,12 @@ def main(argv=sys.argv):
     parser = argparse.ArgumentParser(description='ModVAR Task')
     parser.add_argument("-m", dest='mode', default="eval", help="mode: train_eval, eval")
     parser.add_argument("-t", dest='train_file', default="train",help="train file name")
-    parser.add_argument("-v", dest='val_file', default="val_23t1", help="train file name:val_23t1,val_23t2,val_23t3,val_mutation_cluster,val_In_vivo,val_In_vitro")
+    parser.add_argument("-v", dest='val_file', default="val_23t1", help="validation file name:val_23t1,val_23t2,val_23t3,val_mutation_cluster,val_In_vivo,val_In_vitro")
     parser.add_argument('-e', dest='epoch', type=int, default=20, help="train epoch")
     parser.add_argument("-s", dest='seed', type=int, default=15, help="seed")
     parser.add_argument("-b", dest='batch_size', type=int, default=64, help="batchsize")
-    parser.add_argument("-model", dest='eval_model', default="ModVAR", help="model name")
-    parser.add_argument("-tab", dest='tab_model', default="saint_fn", help="tabular pretrain model")
+    parser.add_argument("-model", dest='eval_model', default="ModVAR.pth", help="full model path")
+    parser.add_argument("-tab", dest='tab_model', default="saint_fn.pth", help="tabular pretrain model")
     parser.add_argument("-file", dest='file', default="val_23t1", help="file name to be processed")
     parser.add_argument("-o", dest='output', default=None, help="if set then save the results to output directory.")
 
@@ -342,7 +345,7 @@ if __name__ == '__main__':
     main()
 
 '''
-python task.py -m eval -v val_23t1
-python task.py -m train_eval -v val_23t1
+python task.py -m eval -v val_23t1 -o test
+python task.py -m train_eval -v val_23t1 -model ModVAR_default
 python task.py -m extract_dna_fea -file val_In_vivo
 '''
