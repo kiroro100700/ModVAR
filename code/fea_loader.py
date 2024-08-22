@@ -23,7 +23,12 @@ def load_dna_fea(file_name):
     return dna_fea
 
 def load_aa_fea(file_name):
-    aa_fea = np.load("../data/fea/aa/{}_aa_fea.npy".format(file_name))
+    if file_name == "train":
+        aa_fea_1 = np.load("../data/fea/aa/{}_aa_fea_1.npy".format(file_name))
+        aa_fea_2 = np.load("../data/fea/aa/{}_aa_fea_2.npy".format(file_name))
+        aa_fea = np.concatenate([aa_fea_1,aa_fea_2],axis = 0)
+    else:
+        aa_fea = np.load("../data/fea/aa/{}_aa_fea.npy".format(file_name))
     return aa_fea
 
 def load_gene_fea(file_name):
