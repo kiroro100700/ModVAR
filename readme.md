@@ -26,6 +26,7 @@ git clone https://github.com/kiroro100700/ModVAR.git
 
 cd ModVAR
 ~~~
+If you failed download files in dna_bert directory,you can directly download it from hugging_face()
 
 Prepare the environment,the `requirements.txt` is based on python3.7.1.
 ~~~
@@ -101,7 +102,9 @@ This command allows you to evaluate a ModVAR model on selected validation set. I
 
 ### Feature extraction
 
-Example:
+If you want to extract dna feature, you need to download DNA_Bert2 model from [huggingface](https://huggingface.co/zhihan1996/DNABERT-2-117M).
+
+And then you can run following example:
 
 ~~~
 python task.py -m extract_dna_fea -file val_In_vivo
