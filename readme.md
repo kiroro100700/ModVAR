@@ -10,6 +10,11 @@
 
 ModVAR is an innovative multimodal model that integrates DNA sequences, protein tertiary structures, and cancer omics data to predict driver variants with exceptional precision.Leveraging pre-trained models DNAbert2 and ESMFold, combined with a novel self-supervised strategy for omics data, ModVAR consistently outperforms 14 leading prediction methods. It achieves an outstanding AUROC of 0.985 in clinical benchmarks and 0.952 in experimental assay-related benchmarks, underscoring its effectiveness in identifying both clinically and experimentally validated variants. ModVAR also excels in predicting cancer indels, with an AUROC of 0.901, and demonstrates remarkable generalization with an AUROC of 0.981 for non-cancer disease variants. These results underscore ModVAR's robustness and versatility, positioning it as a powerful tool in genomics and precision medicine. Additionally, its application to COSMIC has generated a publicly available resource of 3,971,946 annotated variants, marking a significant advancement in cancer research and personalized therapy.
 
+## DataDownload
+
+---
+All predictions scores from ModVAR in this study can be downloaded from [drive](https://drive.google.com/drive/folders/1Vpt4-jIwfLAHhV3tFRG5QRhijRxo__rf?usp=sharing).
+
 ## Installation
 
 ---
@@ -34,6 +39,7 @@ pip install -r requirements.txt
 ~~~
 
 Note that the command should be executed in the directory containing the requirements.txt file.
+
 
 ## Usage
 
