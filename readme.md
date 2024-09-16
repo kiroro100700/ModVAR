@@ -13,7 +13,15 @@ ModVAR is an innovative multimodal model that integrates DNA sequences, protein 
 ## DataDownload
 
 ---
-All predictions scores from ModVAR in this study can be downloaded from [drive](https://drive.google.com/drive/folders/1Vpt4-jIwfLAHhV3tFRG5QRhijRxo__rf?usp=sharing).
+All predictions scores from ModVAR in this study can be downloaded from the `output/`directory and are presented in `tsv` or `tabix` format.
+
+For scores in `tsv` format, the header contains 6 colums:Chr,Pos,Ref,Alt,Label,Score.
+
+For scores in `tabix` format(ModVAR_COSMIC.score.gz and ModVAR_COSMIC.score.gz.tbi):
+~~~
+#Use following command to get ModVAR scores for variants in COSMIC with tabix: 
+tabix ModVAR_COSMIC.score.gz 1:10000000-20000000
+~~~
 
 ## Installation
 
@@ -26,7 +34,7 @@ git clone https://github.com/kiroro100700/ModVAR.git
 
 cd ModVAR
 ~~~
-If you failed download files in dna_bert directory,you can directly download it from hugging_face()
+If you failed download files in dna_bert directory,you can directly download it from [hugging_face](https://huggingface.co/zhihan1996/DNABERT-2-117M)
 
 Prepare the environment,the `requirements.txt` is based on python3.7.1.
 ~~~
