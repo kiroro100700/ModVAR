@@ -57,8 +57,8 @@ Note that the command should be executed in the directory containing the require
  This repository mainly support 3 different workflow:
 
 - Train and evaluate your own ModVAR model with chosen dataset.
-- Evaluate a trained ModVAR model on specific dataset and access scoreing result in an output file.
-- Extracting DNA pretraining embeded features.(protein and tabular cancer-omics extraction(pretraining) are not included in this repository due to large memory and computing comsumption)
+- Evaluate a trained ModVAR model on specific dataset and access scoring result in an output file.
+- Extracting DNA pretraining embeded features.(Protein and cancer-omics extraction(pretraining) modules are being organized and will be provided later.)
 
 First you need to cd into the code directory to call the command below.
 
