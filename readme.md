@@ -15,14 +15,14 @@ ModVAR is an innovative multimodal model that integrates DNA sequences, protein 
 ---
 All predictions scores from ModVAR in this study can be downloaded from the `output/`directory and are presented in both GRCh37 and GRCh38 versions.
 
-Or you can access ModVAR's scores via our online website [modvar](http://modvar.haiyanglab.cn/) easily.
+Or you can access ModVAR's scores via our online website [modvar.haiyanglab.cn](http://modvar.haiyanglab.cn/) easily.
 
 For scores in `tsv` format, the header contains 6 columns:Chr,Pos,Ref,Alt,Label,Score.
 
-For scores in `tabix` format(ModVAR_COSMIC.score.gz and ModVAR_COSMIC.score.gz.tbi):
+For scores in `tabix` format(ModVAR_GRCh37.score.gz and ModVAR_GRCh38.score.gz):
 ~~~
-#Use following command to get ModVAR scores for variants in COSMIC with tabix: 
-tabix GRCh37_ModVAR_COSMIC.score.gz 1:10000000-20000000
+#Use following command to get ModVAR scores with tabix: 
+tabix ModVAR_GRCh37.score.gz 1:10000000-20000000
 ~~~
 
 ## Installation
