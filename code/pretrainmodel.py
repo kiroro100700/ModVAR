@@ -1,4 +1,5 @@
 from model import *
+import numpy as np
 
 class sep_MLP(nn.Module):
     def __init__(self,dim,len_feats,categories):

@@ -1,4 +1,4 @@
-hg19_chr	hg19_pos(1-based)	ref	alt
+Chr	Pos	Ref	Alt
 14	105243048	G	T
 14	105239279	G	A
 14	105241307	C	T

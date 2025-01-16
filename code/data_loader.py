@@ -36,15 +36,41 @@ class MyDataset(Dataset):
             return self.dna_fea[idx], self.aa_fea[idx], self.tool_fea[idx], tab_, mask_
 
 
-def shuffle_data(seed,features,info_df = None):
-    np.random.seed(seed)
-    indices = np.random.permutation(features[0].shape[0])
+class DataSetCatCon(Dataset):
+    def __init__(self, X, continuous_mean_std=None):
+        X_mask = X['mask'].copy()
+        X = X['data'].copy()
+
+        self.X2 = X.copy().astype(np.float32)  # numerical columns
+        self.X2_mask = X_mask.copy().astype(np.int64)  # numerical columns
+
+        self.cls = np.zeros((X.shape[0],1), dtype=int)
+        self.cls_mask = np.ones((X.shape[0],1), dtype=int)
+
+        if continuous_mean_std is not None:
+            mean, std = continuous_mean_std
+            self.X2 = (self.X2 - mean) / std
+
+    def __len__(self):
+        return self.X2.shape[0]
+
+    def __getitem__(self, idx):
+        # X2 has continuous data
+        return np.concatenate((self.cls[idx], self.X2[idx])), \
+               np.concatenate((self.cls_mask[idx], self.X2_mask[idx]))
+
+
+def shuffle_data(seed,features,info_df = None,indices = None):
+    if indices is None:
+        np.random.seed(seed)
+        indices = np.random.permutation(features[0].shape[0])
     permut_features = []
     for i in range(len(features)):
         feature = features[i]
         permut_features.append(np.array([feature[j] for j in indices]))
     if info_df is not None:
         info_df = info_df.reindex(indices)
+        info_df = info_df.reset_index(drop=True)
     return permut_features,info_df
 
 def load_data_info(file_name):

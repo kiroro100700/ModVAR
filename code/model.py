@@ -220,6 +220,7 @@ class ModVAR(nn.Module):
     self.aa_contrastln =  nn.LayerNorm(normalized_shape=[1280],eps=1e-6)
     self.aa_ln = nn.LayerNorm(normalized_shape=[128],eps=1e-6)
 
+    #LMF
     self.seq_factor = Parameter(torch.Tensor(self.rank, 128 + 1, self.output_dim))
     self.aa_factor = Parameter(torch.Tensor(self.rank, 128 + 1, self.output_dim))
     self.tab_factor = Parameter(torch.Tensor(self.rank, 128 + 1, self.output_dim))
@@ -336,6 +337,7 @@ class ModVAR(nn.Module):
         fusion_zy = fusion_zy * fusion_tool
     else:
         fusion_zy = fusion_tool
+
     output = torch.matmul(self.fusion_weights, fusion_zy.permute(1, 0, 2)).squeeze() + self.fusion_bias
     output = output.view(-1, self.output_dim)
 
@@ -349,4 +351,149 @@ class ModVAR(nn.Module):
     x = self.fc4_(x)
     x = F.relu(x)
     res = self.fc5_(x)
+
     return torch.sigmoid(res)
+
+class ModVAR_shap(nn.Module):
+  def __init__(self):
+      super(ModVAR_shap, self).__init__()
+      self.output_dim = 128
+      self.rank = 4
+
+      self.fc_bert1 = nn.Linear(768, 768)
+      self.fc_bert2 = nn.Linear(768, 128)
+      self.dna_cmattn = Contrast_MultiHeadSelfAttention(768, 300, 768, num_heads=3)
+      self.contrast_ln = nn.LayerNorm(normalized_shape=[768], eps=1e-6)
+      self.dna_ln = nn.LayerNorm(normalized_shape=[128], eps=1e-6)
+
+      self.tab_ln1 = nn.LayerNorm(normalized_shape=[226, 4], eps=1e-6)
+      # self.tab_ln1 = nn.LayerNorm(normalized_shape=[143,4],eps = 1e-6) #remove cancer specific fea
+      self.tab_ln2 = nn.LayerNorm(normalized_shape=[128], eps=1e-6)
+
+      self.tab_fc1 = nn.Linear(4 * 226, 226)
+      # self.tab_fc1 = nn.Linear(4*143,226) #remove cancer specific fea
+      self.tab_fc2 = nn.Linear(226, 128)
+      self.tab_f = nn.Flatten()
+
+      # aa 3d
+      self.aa_fc1 = nn.Linear(1280, 960)
+      self.aa_fc2 = nn.Linear(960, 512)
+      self.aa_fc3 = nn.Linear(512, 128)
+      self.aa_cmattn = Contrast_MultiHeadSelfAttention(1280, 960, 1280, num_heads=4)
+      self.aa_contrastln = nn.LayerNorm(normalized_shape=[1280], eps=1e-6)
+      self.aa_ln = nn.LayerNorm(normalized_shape=[128], eps=1e-6)
+
+      # LMF
+      self.seq_factor = Parameter(torch.Tensor(self.rank, 128 + 1, self.output_dim))
+      self.aa_factor = Parameter(torch.Tensor(self.rank, 128 + 1, self.output_dim))
+      self.tab_factor = Parameter(torch.Tensor(self.rank, 128 + 1, self.output_dim))
+      self.tool_factor = Parameter(torch.Tensor(self.rank, 4 + 1, self.output_dim))
+
+      self.fusion_weights = Parameter(torch.Tensor(1, self.rank))
+      self.fusion_bias = Parameter(torch.Tensor(1, self.output_dim))
+
+      # init teh factors
+      xavier_normal_(self.seq_factor)
+      xavier_normal_(self.aa_factor)
+      xavier_normal_(self.tool_factor)
+      xavier_normal_(self.tab_factor)
+      xavier_normal_(self.fusion_weights)
+      self.fusion_bias.data.fill_(0)
+
+      self.fc1_ = nn.Linear(128, 512)
+      self.fc2_ = nn.Linear(512, 256)
+      self.fc3_ = nn.Linear(256, 128)
+      self.fc4_ = nn.Linear(128, 64)
+      self.fc5_ = nn.Linear(64, 1)
+
+  def forward(self,x):
+      dna_x = x[:, 0:128]
+      aa_x = x[:, 128:256]
+      tab_x = x[:, 256:384]
+      tool_x = x[:, 384:]
+      # LMF
+      if dna_x.is_cuda:
+          DTYPE = torch.cuda.FloatTensor
+      else:
+          DTYPE = torch.FloatTensor
+
+      if len(dna_x.shape) == 1:
+          dna_x = torch.unsqueeze(dna_x, 0)
+          aa_x = torch.unsqueeze(aa_x, 0)
+      batch_size = dna_x.shape[0]
+
+      _seq_h = torch.cat((Variable(torch.ones(batch_size, 1).type(DTYPE), requires_grad=False), dna_x), dim=1)
+      _aa_h = torch.cat((Variable(torch.ones(batch_size, 1).type(DTYPE), requires_grad=False), aa_x), dim=1)
+      _tool_h = torch.cat((Variable(torch.ones(batch_size, 1).type(DTYPE), requires_grad=False), tool_x), dim=1)
+      _tab_h = torch.cat((Variable(torch.ones(batch_size, 1).type(DTYPE), requires_grad=False), tab_x), dim=1)
+      fusion_seq = torch.matmul(_seq_h, self.seq_factor)
+      fusion_aa = torch.matmul(_aa_h, self.aa_factor)
+      fusion_tab = torch.matmul(_tab_h, self.tab_factor)
+      # _tool_h = _tool_h.to(torch.float32)
+      fusion_tool = torch.matmul(_tool_h, self.tool_factor)
+
+
+      fusion_zy = fusion_seq
+      fusion_zy = fusion_zy * fusion_aa
+      fusion_zy = fusion_zy * fusion_tab
+      fusion_zy = fusion_zy * fusion_tool
+
+      output = torch.matmul(self.fusion_weights, fusion_zy.permute(1, 0, 2)).squeeze() + self.fusion_bias
+      output = output.view(-1, self.output_dim)
+
+      x = self.fc1_(output)
+      x = F.relu(x)
+      x = torch.sigmoid(x)
+      x = self.fc2_(x)
+      x = F.relu(x)
+      x = self.fc3_(x)
+      x = F.relu(x)
+      x = self.fc4_(x)
+      x = F.relu(x)
+      res = self.fc5_(x)
+
+      return torch.sigmoid(res)
+
+  def extract_fea_before_lmf(self,dna_x, aa_x, tool_x=None, tab_x=None, dna_switch=True, aa_switch=True, tab_switch=True):
+      if dna_switch:
+          half_size = int(dna_x.shape[1] / 2)
+          splits = torch.split(dna_x, (half_size, half_size), dim=1)
+          ref_x = splits[0]
+          alt_x = splits[1]
+          ref_x = torch.reshape(ref_x, (ref_x.shape[0], 1, ref_x.shape[1]))
+          alt_x = torch.reshape(alt_x, (alt_x.shape[0], 1, alt_x.shape[1]))
+          x_contrast, x_att = self.dna_cmattn(ref_x, alt_x)
+          x_contrast = torch.squeeze(x_contrast)
+          dna_x = self.contrast_ln(x_contrast)
+          dna_x = self.fc_bert1(dna_x)
+          dna_x = self.fc_bert2(dna_x)
+          dna_x = self.dna_ln(dna_x)
+
+      # aa 3d
+      if aa_switch:
+          half_size = int(aa_x.shape[1] / 2)
+          splits = torch.split(aa_x, (half_size, half_size), dim=1)
+          ref_aax = splits[0]
+          alt_aax = splits[1]
+          ref_aax = torch.reshape(ref_aax, (ref_aax.shape[0], 1, ref_aax.shape[1]))
+          alt_aax = torch.reshape(alt_aax, (alt_aax.shape[0], 1, alt_aax.shape[1]))
+          aa_x_contrast, aa_x_att = self.aa_cmattn(ref_aax, alt_aax)
+          aa_x_contrast = torch.squeeze(aa_x_contrast)
+          aa_x = self.aa_contrastln(aa_x_contrast)
+          aa_x = self.aa_fc1(aa_x)
+          aa_x = self.aa_fc2(F.relu(aa_x))
+          aa_x = self.aa_fc3(F.relu(aa_x))
+          aa_x = self.aa_ln(aa_x)
+
+      # tabular
+      if tab_switch:
+          # tab_pretrain
+          # tab_x = tab_x.to(torch.float32)
+          tab_x = self.tab_ln1(tab_x)
+          tab_x = self.tab_f(tab_x)
+          tab_x = self.tab_fc1(tab_x)
+          tab_x = F.relu(tab_x)
+          tab_x = self.tab_fc2(tab_x)
+          tab_x = self.tab_ln2(tab_x)
+
+      return dna_x,aa_x,tab_x,tool_x
