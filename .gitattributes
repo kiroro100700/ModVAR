@@ -1,3 +1,0 @@
-code/dna_bert/pytorch_model.bin filter=lfs diff=lfs merge=lfs -text
-pytorch_model.bin filter=lfs diff=lfs merge=lfs -text
-ModVAR_COSMIC_score.tsv filter=lfs diff=lfs merge=lfs -text
