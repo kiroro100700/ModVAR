@@ -15,6 +15,7 @@ import argparse
 import os
 import pandas as pd
 from scipy import stats
+from pyliftover import LiftOver
 
 
 cuda_is_available = torch.cuda.is_available()
@@ -346,7 +347,7 @@ def tab_model_pretrain(file_name = "train",save_name='',num_epoch =500,batch_siz
     return model
 
 
-def load_eval_set(val_name,neg_file = "val_COSMIC_neg_0",sample=True):
+def load_eval_set(val_name,neg_file = "val_COSMIC_neg_0",sample=True,load_label = True,version = "hg19"):
     if "civic" in val_name:
         pos_val = list(fea_loader.load_fea("val_civic","infer"))
         neg_val = list(fea_loader.load_COSMIC_neg_fea(neg_file,"infer"))
@@ -360,12 +361,23 @@ def load_eval_set(val_name,neg_file = "val_COSMIC_neg_0",sample=True):
         info_df = pd.concat((pos_info_df,neg_info_df),axis=0)
         info_df.reset_index(drop=True,inplace=True)
     else:
-        features_val = list(fea_loader.load_fea(val_name, "infer"))
+        features_val = list(fea_loader.load_fea(val_name, "infer",load_label=load_label))
         info_df = load_data_info(val_name)
+    if version == "hg38":
+        lo = LiftOver('hg19', 'hg38')
+        for idx,row in info_df.iterrows():
+            chrom = "chr"+str(row["Chr"])
+            pos_hg19 = row["Pos"]
+            pos_hg38 = lo.convert_coordinate(chrom, pos_hg19)
+            if pos_hg38:
+                info_df.loc[idx,["Pos"]] = pos_hg38[0][1]
+            else:
+                info_df.loc[idx,["Pos"]]  = "/"
+
     return features_val,info_df
 
 
-def evaluation(features_val,info_df,tab_model = "saint_fn.pth",model_name = "ModVAR.pth",output = None,seed = 15):
+def evaluation(features_val,info_df,tab_model = "saint_fn.pth",model_name = "ModVAR.pth",output = None,seed = 15, load_label = True):
     features_val, info_df = shuffle_data(0, features_val, info_df)
 
     dna_valid = torch.DoubleTensor(features_val[0])
@@ -429,40 +441,41 @@ def evaluation(features_val,info_df,tab_model = "saint_fn.pth",model_name = "Mod
             prob = y_hat.max(1).values
             prob_all.extend(prob.cpu().detach().numpy())
             label_all.extend(y_v.cpu().detach())
-
-            right, counts = rightness(prob, y_v)
-            correct += right
+            if load_label:
+                right, counts = rightness(prob, y_v)
+                correct += right
+    if load_label:
     # auprc
-    precision, recall, thresholds = precision_recall_curve(label_all, prob_all)
-    auprc = auc(recall, precision)
+        precision, recall, thresholds = precision_recall_curve(label_all, prob_all)
+        auprc = auc(recall, precision)
 
-    # auroc
-    fp, tp, thresholds_ = roc_curve(label_all, prob_all)
-    auroc = auc(fp, tp)
+        # auroc
+        fp, tp, thresholds_ = roc_curve(label_all, prob_all)
+        auroc = auc(fp, tp)
 
-    # f1 & Youden metrics
-    j_scores = tp - fp
-    best_idx = np.argmax(j_scores)
-    best_threshold = thresholds_[best_idx]
-    # # mean_score = np.mean(scores)
-    predictions = [1 if prob_all[i] >= best_threshold else 0 for i in range(len(prob_all))]
-    f1 = f1_score(label_all, predictions)
+        # f1 & Youden metrics
+        j_scores = tp - fp
+        best_idx = np.argmax(j_scores)
+        best_threshold = thresholds_[best_idx]
+        # # mean_score = np.mean(scores)
+        predictions = [1 if prob_all[i] >= best_threshold else 0 for i in range(len(prob_all))]
+        f1 = f1_score(label_all, predictions)
 
-    #p-value
-    x0_all,x1_all = [],[]
-    for idx in range(len(label_all)):
-        if label_all[idx] == 0:
-            x0_all.append(predictions[idx])
-        else:
-            x1_all.append(predictions[idx])
-    statistic, pvalue = stats.mannwhitneyu(x0_all, x1_all, use_continuity=True, alternative='two-sided')
+        #p-value
+        x0_all,x1_all = [],[]
+        for idx in range(len(label_all)):
+            if label_all[idx] == 0:
+                x0_all.append(predictions[idx])
+            else:
+                x1_all.append(predictions[idx])
+        statistic, pvalue = stats.mannwhitneyu(x0_all, x1_all, use_continuity=True, alternative='two-sided')
 
-    # accuracy,Loss
-    accuracy = 100. * correct / dna_valid.shape[0]
-    print('Test set: Accuracy: {}/{} ({:.3f}%), AUPRC:{:.4f}, AUROC:{:.4f},F1:{:.4f}\n'.format(
-        correct, dna_valid.shape[0], accuracy, auprc, auroc, f1))
-    # print('Test set: Best thre:',best_threshold)
-    # print('Test set: P_value:',pvalue,'\n')
+        # accuracy,Loss
+        accuracy = 100. * correct / dna_valid.shape[0]
+        print('Test set: Accuracy: {}/{} ({:.3f}%), AUPRC:{:.4f}, AUROC:{:.4f},F1:{:.4f}\n'.format(
+            correct, dna_valid.shape[0], accuracy, auprc, auroc, f1))
+        # print('Test set: Best thre:',best_threshold)
+        # print('Test set: P_value:',pvalue,'\n')
     if output is not None:
         print("Writing the results into output...")
         with open("../output/{}.tsv".format(output), "w+") as f:
@@ -472,8 +485,10 @@ def evaluation(features_val,info_df,tab_model = "saint_fn.pth",model_name = "Mod
                                                              info_df.iloc[i, 3], label_all[i], prob_all[i])
                 f.write(line)
         print("Successfully write into {}.".format(output))
-    return accuracy.cpu(), auprc, auroc, f1,best_threshold,pvalue
-
+    if load_label:
+        return accuracy.cpu(), auprc, auroc, f1,best_threshold,pvalue
+    else:
+        return 0,0,0,0,0,0
 
 def train_and_eval_ModVAR(train_name,val_name,tab_model = "saint_fn",batch_size = 32,n_epoch=20,save_name='',seed=15):
     features_train = list(fea_loader.load_fea(train_name,"infer"))
@@ -654,9 +669,9 @@ def train_and_eval_ModVAR(train_name,val_name,tab_model = "saint_fn",batch_size 
             torch.save(model,"../data/{}/{}_epoch{}.pth".format(save_name,save_name,epoch+1))
 
 
-def eval_set(val_name,tab_model = "saint_fn.pth",model_name = "ModVAR.pth",output = None,seed = 15,neg_file = "val_COSMIC_neg_0",sample = True):
-    features_val,info_df = load_eval_set(val_name,neg_file,sample)
+def eval_set(val_name,tab_model = "saint_fn.pth",model_name = "ModVAR.pth",output = None,seed = 15,neg_file = "val_COSMIC_neg_0",sample = True,version = "hg19"):
     if "23t" in val_name and sample:
+        features_val, info_df = load_eval_set(val_name, neg_file, sample,version)
         labels = features_val[6]
         pos_idx = [i for i, label in enumerate(labels) if label == 1]
         neg_idx = [i for i, label in enumerate(labels) if label == 0]
@@ -683,7 +698,11 @@ def eval_set(val_name,tab_model = "saint_fn.pth",model_name = "ModVAR.pth",outpu
         # print("p_value mean:{}±{}".format(p_valus_np.mean(axis=0), np.std(p_valus_np)))
 
         yield acc_np,roc_np,prc_np,f1_np,beat_thre_np,p_valus_np
+    elif val_name == "val_vus":
+        features_val, info_df = load_eval_set(val_name, neg_file, sample,load_label=False,version=version)
+        yield evaluation(features_val, info_df, tab_model, model_name, output, seed,load_label=False)
     else:
+        features_val, info_df = load_eval_set(val_name, neg_file, sample,version=version)
         yield evaluation(features_val,info_df,tab_model,model_name,output,seed)
 
 
@@ -701,6 +720,7 @@ def main(argv=sys.argv):
     parser.add_argument("-nosample", dest='nosample', default=False, help="Use multi sampling evaluate.")
     parser.add_argument("-o", dest='output', default=None, help="if set then save the results to output directory.")
     parser.add_argument("-tool", dest='tool_name', default=None, help="Compared tool names,use ',' to separate different tools.")
+    parser.add_argument("-version", dest='version', default="hg19", help="Compared tool names,use ',' to separate different tools.")
 
     args = parser.parse_args()
     if args.nosample is not False:
@@ -714,7 +734,7 @@ def main(argv=sys.argv):
             val_list = ["val_23t1","val_23t2","val_23t3","val_mutation_cluster","val_In_vitro","val_In_vivo","val_disprot","civic"]
             for val_file in val_list:
                 next(eval_set(val_file, tab_model=args.tab_model, model_name=args.eval_model, output=args.output,
-                         seed=args.seed,sample=sample))
+                         seed=args.seed,sample=sample,version=args.version))
                 print("-"*200)
         elif "civic" in args.val_file:
             neg_list = [f"val_COSMIC_neg_{i}" for i in range(10)]
@@ -727,7 +747,7 @@ def main(argv=sys.argv):
             z = 0
             for neg_file in neg_list:
                 acc,prc,roc,f1,beat_thre,p_value = next(eval_set(args.val_file, tab_model=args.tab_model, model_name=args.eval_model, output=out_file[z],
-                         seed=args.seed,neg_file=neg_file,sample=sample))
+                         seed=args.seed,neg_file=neg_file,sample=sample,version=args.version))
                 acc_list.append(acc)
                 prc_list.append(prc)
                 roc_list.append(roc)
@@ -743,7 +763,7 @@ def main(argv=sys.argv):
             # print("Best thre mean:", beat_thre_np.mean(axis=0))
             # print("P_value mean:", p_value_np.mean(axis=0))
         else:
-            next(eval_set(args.val_file,tab_model=args.tab_model,model_name=args.eval_model,output=args.output,seed=args.seed,sample=sample))
+            next(eval_set(args.val_file,tab_model=args.tab_model,model_name=args.eval_model,output=args.output,seed=args.seed,sample=sample,version=args.version))
     if args.mode == 'train_eval':
         print("Train and Eval")
         train_and_eval_ModVAR(args.train_file,
@@ -792,4 +812,9 @@ python task.py -m extract_dna_fea -file val_mutation_cluster
 python task.py -m extract_aa_fea -file val_mutation_cluster
 python task.py -m tab_pretrain -file train -tab tab_default -e 500
 
+python task.py -m eval -v val_mutation_cluster
+
+python task.py -m extract_aa_fea -file val_germline
+python task.py -m extract_dna_fea -file val_germline
+python task.py -m eval -v val_germline -o val_germline
 '''

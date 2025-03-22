@@ -85,21 +85,25 @@ def load_pancan_fea(file_name,benchmark_dir=False):
     pancan_fea = np.load("../data/fea/{}/{}_pancan_fea.npy".format(father_path,file_name))
     return pancan_fea
 
-def load_fea(file_name,mode,benchmark_dir=False):
-    labels = load_labels(file_name,benchmark_dir)
+def load_fea(file_name,mode,benchmark_dir=False,load_label = True):
+
     dna_fea = load_dna_fea(file_name,benchmark_dir)
     aa_fea = load_aa_fea(file_name,benchmark_dir)
     gene_fea = load_gene_fea(file_name,benchmark_dir)
     epi_fea = load_epi_fea(file_name,benchmark_dir)
     pc_fea = load_pancan_fea(file_name,benchmark_dir)
     tool_fea = load_tool_score(file_name,mode,benchmark_dir)
+    if load_label:
+        labels = load_labels(file_name,benchmark_dir)
+    else:
+        labels = [1 for _ in range(dna_fea.shape[0])]
     # print(dna_fea.shape,aa_fea.shape,gene_fea.shape, epi_fea.shape, pc_fea.shape, tool_fea.shape,len(labels))
-    if dna_fea.shape[0] == aa_fea.shape[0] == gene_fea.shape[0] == epi_fea.shape[0] == pc_fea.shape[0] == tool_fea.shape[0] == len(labels):
+    if dna_fea.shape[0] == aa_fea.shape[0] == gene_fea.shape[0] == epi_fea.shape[0] == pc_fea.shape[0] == tool_fea.shape[0]:
         print("{} features load successfully!".format(file_name))
     else:
         raise ValueError("Feature load error!Shape not match!")
 
-    return (dna_fea,aa_fea,gene_fea,epi_fea,pc_fea,tool_fea,labels)
+    return dna_fea,aa_fea,gene_fea,epi_fea,pc_fea,tool_fea,labels
 
 def load_COSMIC_neg_fea(file_name,mode,benchmark_dir=True):
     dna_fea = load_dna_fea(file_name,benchmark_dir)
