@@ -311,8 +311,8 @@ def SAINT_pretrain(model, X_train, device,save_name = '',num_epoch = 500,batch_s
     return model
 
 
-def tab_model_pretrain(file_name = "train",save_name='',num_epoch =500,batch_size = 64):
-    gene_mat,epi_mat,pc_mat = fea_loader.load_tabular_fea(file_name)
+def tab_model_pretrain(file_name = "train",save_name='',num_epoch =500,batch_size = 64,distance=False):
+    gene_mat,epi_mat,pc_mat = fea_loader.load_tabular_fea(file_name,distance)
     tab_fea = np.concatenate([gene_mat, pc_mat], axis=1)
     tab_fea = np.concatenate([tab_fea, epi_mat], axis=1)
     print(tab_fea.shape)
@@ -347,10 +347,10 @@ def tab_model_pretrain(file_name = "train",save_name='',num_epoch =500,batch_siz
     return model
 
 
-def load_eval_set(val_name,neg_file = "val_COSMIC_neg_0",sample=True,load_label = True,version = "hg19"):
+def load_eval_set(val_name,neg_file = "val_COSMIC_neg_0",sample=True,load_label = True,version = "hg19",distance = False):
     if "civic" in val_name:
-        pos_val = list(fea_loader.load_fea("val_civic","infer"))
-        neg_val = list(fea_loader.load_COSMIC_neg_fea(neg_file,"infer"))
+        pos_val = list(fea_loader.load_fea("val_civic","infer",distance=distance))
+        neg_val = list(fea_loader.load_COSMIC_neg_fea(neg_file,"infer",distance=distance))
         features_val = []
         for i in range(6):
             features_val.append(np.concatenate((pos_val[i],neg_val[i]),axis = 0))
@@ -361,7 +361,7 @@ def load_eval_set(val_name,neg_file = "val_COSMIC_neg_0",sample=True,load_label 
         info_df = pd.concat((pos_info_df,neg_info_df),axis=0)
         info_df.reset_index(drop=True,inplace=True)
     else:
-        features_val = list(fea_loader.load_fea(val_name, "infer",load_label=load_label))
+        features_val = list(fea_loader.load_fea(val_name, "infer",load_label=load_label,distance=distance))
         info_df = load_data_info(val_name)
     if version == "hg38":
         lo = LiftOver('hg19', 'hg38')
@@ -490,8 +490,8 @@ def evaluation(features_val,info_df,tab_model = "saint_fn.pth",model_name = "Mod
     else:
         return 0,0,0,0,0,0
 
-def train_and_eval_ModVAR(train_name,val_name,tab_model = "saint_fn",batch_size = 32,n_epoch=20,save_name='',seed=15):
-    features_train = list(fea_loader.load_fea(train_name,"infer"))
+def train_and_eval_ModVAR(train_name,val_name,tab_model = "saint_fn",batch_size = 32,n_epoch=20,save_name='',seed=15,distance=False):
+    features_train = list(fea_loader.load_fea(train_name,"infer",distance=distance))
     features_train_1 = []
     features_train_2 = []
     for feature in features_train:
@@ -517,7 +517,7 @@ def train_and_eval_ModVAR(train_name,val_name,tab_model = "saint_fn",batch_size 
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=False)
 
 
-    features_val = list(fea_loader.load_fea(val_name,"infer"))
+    features_val = list(fea_loader.load_fea(val_name,"infer",distance=distance))
     features_val,_ = shuffle_data(0, features_val)
 
 
@@ -669,9 +669,9 @@ def train_and_eval_ModVAR(train_name,val_name,tab_model = "saint_fn",batch_size 
             torch.save(model,"../data/{}/{}_epoch{}.pth".format(save_name,save_name,epoch+1))
 
 
-def eval_set(val_name,tab_model = "saint_fn.pth",model_name = "ModVAR.pth",output = None,seed = 15,neg_file = "val_COSMIC_neg_0",sample = True,version = "hg19"):
+def eval_set(val_name,tab_model = "saint_fn.pth",model_name = "ModVAR.pth",output = None,seed = 15,neg_file = "val_COSMIC_neg_0",sample = True,version = "hg19",distance = False):
     if "23t" in val_name and sample:
-        features_val, info_df = load_eval_set(val_name, neg_file, sample,version)
+        features_val, info_df = load_eval_set(val_name, neg_file, sample,version,distance=distance)
         labels = features_val[6]
         pos_idx = [i for i, label in enumerate(labels) if label == 1]
         neg_idx = [i for i, label in enumerate(labels) if label == 0]
@@ -699,10 +699,10 @@ def eval_set(val_name,tab_model = "saint_fn.pth",model_name = "ModVAR.pth",outpu
 
         yield acc_np,roc_np,prc_np,f1_np,beat_thre_np,p_valus_np
     elif val_name == "val_vus":
-        features_val, info_df = load_eval_set(val_name, neg_file, sample,load_label=False,version=version)
+        features_val, info_df = load_eval_set(val_name, neg_file, sample,load_label=False,version=version,distance=distance)
         yield evaluation(features_val, info_df, tab_model, model_name, output, seed,load_label=False)
     else:
-        features_val, info_df = load_eval_set(val_name, neg_file, sample,version=version)
+        features_val, info_df = load_eval_set(val_name, neg_file, sample,version=version,distance=distance)
         yield evaluation(features_val,info_df,tab_model,model_name,output,seed)
 
 
@@ -720,7 +720,9 @@ def main(argv=sys.argv):
     parser.add_argument("-nosample", dest='nosample', default=False, help="Use multi sampling evaluate.")
     parser.add_argument("-o", dest='output', default=None, help="if set then save the results to output directory.")
     parser.add_argument("-tool", dest='tool_name', default=None, help="Compared tool names,use ',' to separate different tools.")
-    parser.add_argument("-version", dest='version', default="hg19", help="Compared tool names,use ',' to separate different tools.")
+    parser.add_argument("-version", dest='version', default="hg19", help="The version of Human genome reference sequence.")
+    parser.add_argument("-d", dest='distance', action='store_true', help="if set, use distance based cancer specific annotation features.")
+
 
     args = parser.parse_args()
     if args.nosample is not False:
@@ -734,7 +736,7 @@ def main(argv=sys.argv):
             val_list = ["val_23t1","val_23t2","val_23t3","val_mutation_cluster","val_In_vitro","val_In_vivo","val_disprot","civic"]
             for val_file in val_list:
                 next(eval_set(val_file, tab_model=args.tab_model, model_name=args.eval_model, output=args.output,
-                         seed=args.seed,sample=sample,version=args.version))
+                         seed=args.seed,sample=sample,version=args.version,distance=args.distance))
                 print("-"*200)
         elif "civic" in args.val_file:
             neg_list = [f"val_COSMIC_neg_{i}" for i in range(10)]
@@ -747,7 +749,7 @@ def main(argv=sys.argv):
             z = 0
             for neg_file in neg_list:
                 acc,prc,roc,f1,beat_thre,p_value = next(eval_set(args.val_file, tab_model=args.tab_model, model_name=args.eval_model, output=out_file[z],
-                         seed=args.seed,neg_file=neg_file,sample=sample,version=args.version))
+                         seed=args.seed,neg_file=neg_file,sample=sample,version=args.version,distance=args.distance))
                 acc_list.append(acc)
                 prc_list.append(prc)
                 roc_list.append(roc)
@@ -763,7 +765,7 @@ def main(argv=sys.argv):
             # print("Best thre mean:", beat_thre_np.mean(axis=0))
             # print("P_value mean:", p_value_np.mean(axis=0))
         else:
-            next(eval_set(args.val_file,tab_model=args.tab_model,model_name=args.eval_model,output=args.output,seed=args.seed,sample=sample,version=args.version))
+            next(eval_set(args.val_file,tab_model=args.tab_model,model_name=args.eval_model,output=args.output,seed=args.seed,sample=sample,version=args.version,distance=args.distance))
     if args.mode == 'train_eval':
         print("Train and Eval")
         train_and_eval_ModVAR(args.train_file,
@@ -772,7 +774,8 @@ def main(argv=sys.argv):
                               batch_size=args.batch_size,
                               n_epoch=args.epoch,
                               save_name=args.eval_model,
-                              seed=args.seed)
+                              seed=args.seed,
+                              distance=args.distance)
     if args.mode == 'extract_dna_fea':
         print("extract_dna_fea")
         fea = encode_dna_seq(args.file,save=True)
@@ -811,10 +814,4 @@ python task.py -m calculate_metrics -v val_mutation_cluster -tool all
 python task.py -m extract_dna_fea -file val_mutation_cluster
 python task.py -m extract_aa_fea -file val_mutation_cluster
 python task.py -m tab_pretrain -file train -tab tab_default -e 500
-
-python task.py -m eval -v val_mutation_cluster
-
-python task.py -m extract_aa_fea -file val_germline
-python task.py -m extract_dna_fea -file val_germline
-python task.py -m eval -v val_germline -o val_germline
 '''

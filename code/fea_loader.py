@@ -77,21 +77,24 @@ def load_epi_fea(file_name,benchmark_dir=False):
     epi_fea = np.load("../data/fea/{}/{}_epi_fea.npy".format(father_path,file_name))
     return epi_fea
 
-def load_pancan_fea(file_name,benchmark_dir=False):
+def load_pancan_fea(file_name,benchmark_dir=False, distance=False):
     if not benchmark_dir:
         father_path = "pancan"
     else:
         father_path = file_name
-    pancan_fea = np.load("../data/fea/{}/{}_pancan_fea.npy".format(father_path,file_name))
+    if not distance:
+        pancan_fea = np.load("../data/fea/{}/{}_pancan_fea.npy".format(father_path,file_name))
+    else:
+        pancan_fea = np.load("../data/fea/{}/{}_pancan_fea_distance.npy".format(father_path,file_name))
     return pancan_fea
 
-def load_fea(file_name,mode,benchmark_dir=False,load_label = True):
+def load_fea(file_name,mode,benchmark_dir=False,load_label = True,distance = False):
 
     dna_fea = load_dna_fea(file_name,benchmark_dir)
     aa_fea = load_aa_fea(file_name,benchmark_dir)
     gene_fea = load_gene_fea(file_name,benchmark_dir)
     epi_fea = load_epi_fea(file_name,benchmark_dir)
-    pc_fea = load_pancan_fea(file_name,benchmark_dir)
+    pc_fea = load_pancan_fea(file_name,benchmark_dir,distance)
     tool_fea = load_tool_score(file_name,mode,benchmark_dir)
     if load_label:
         labels = load_labels(file_name,benchmark_dir)
@@ -105,12 +108,12 @@ def load_fea(file_name,mode,benchmark_dir=False,load_label = True):
 
     return dna_fea,aa_fea,gene_fea,epi_fea,pc_fea,tool_fea,labels
 
-def load_COSMIC_neg_fea(file_name,mode,benchmark_dir=True):
+def load_COSMIC_neg_fea(file_name,mode,benchmark_dir=True,distance = False):
     dna_fea = load_dna_fea(file_name,benchmark_dir)
     aa_fea = load_aa_fea(file_name,benchmark_dir)
     gene_fea = load_gene_fea(file_name,benchmark_dir)
     epi_fea = load_epi_fea(file_name,benchmark_dir)
-    pc_fea = load_pancan_fea(file_name,benchmark_dir)
+    pc_fea = load_pancan_fea(file_name,benchmark_dir,distance)
     tool_fea = load_tool_score(file_name,mode,benchmark_dir,from_np=True)
     labels = [0 for _ in range(dna_fea.shape[0])]
     if dna_fea.shape[0] == aa_fea.shape[0] == gene_fea.shape[0] == epi_fea.shape[0] == pc_fea.shape[0] == tool_fea.shape[0] == len(labels):
@@ -120,10 +123,10 @@ def load_COSMIC_neg_fea(file_name,mode,benchmark_dir=True):
 
     return (dna_fea,aa_fea,gene_fea,epi_fea,pc_fea,tool_fea,labels)
 
-def load_tabular_fea(file_name):
+def load_tabular_fea(file_name,distance = False):
     gene_fea = load_gene_fea(file_name)
     epi_fea = load_epi_fea(file_name)
-    pc_fea = load_pancan_fea(file_name)
+    pc_fea = load_pancan_fea(file_name,distance)
     if gene_fea.shape[0] == epi_fea.shape[0] == pc_fea.shape[0]:
         print("{} features load successfully!".format(file_name))
     else:

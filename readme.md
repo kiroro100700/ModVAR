@@ -86,6 +86,7 @@ Options:
 - -tab:Pretrained tabular model.Default value is "saint_fn.pth".
 - -b:Batch size.
 - -e:Number of training epochs.
+- -d:[optional]Use distance based pancan features.
 
 Description:
 
@@ -106,6 +107,7 @@ Options:
 - -tab:Pretrained tabular model.Default value is "saint_fn.pth".
 - -o:[optional]Output file name.If set, then the result will be saved to `output/{output_file}.tsv`
 - -model:[optional]The model to be evaluated,default value is `ModVAR.pth`. If you want to evaluate a model trained by the previous step,must include the directory: `{model_nam}/{model_name}_chosen_epoch.pth`.
+- -d:[optional]Use distance based pancan features.
 
 Description:
 
